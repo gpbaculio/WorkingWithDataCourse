@@ -1,12 +1,13 @@
 import React from 'react';
 import {View} from 'react-native';
+import Challenge from 'src/Challenge';
 
 import {AppContainer} from 'src/components';
 
 const App = () => {
   return (
     <AppContainer>
-      <View>asd</View>
+      <Challenge />
     </AppContainer>
   );
 };

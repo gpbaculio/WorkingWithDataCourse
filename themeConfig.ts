@@ -1,5 +1,3 @@
-import {Platform} from 'react-native';
-
 export const fastImageVariants = {
   defaults: {},
 };
@@ -10,6 +8,10 @@ export const buttonVariants = {
 
 export const containerVariants = {
   defaults: {},
+  center: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 };
 
 export const textVariants = {
@@ -31,4 +33,9 @@ export const colors = {
   '#FB61DA': '#FB61DA',
   '#DAFB61': '#DAFB61',
   '#61FBCF': '#61FBCF',
+  white: 'white',
+  yellow: 'yellow',
+  black: 'black',
+  '#f5f5f5': '#f5f5f5',
+  '#495E57': '#495E57',
 };

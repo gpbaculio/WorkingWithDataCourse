@@ -33,6 +33,7 @@ export const colors = {
   '#FB61DA': '#FB61DA',
   '#DAFB61': '#DAFB61',
   '#61FBCF': '#61FBCF',
+  '#F4CE14': '#F4CE14',
   white: 'white',
   yellow: 'yellow',
   black: 'black',

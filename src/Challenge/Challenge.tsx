@@ -8,17 +8,11 @@ import React, {useEffect, useId, useState} from 'react';
 import Header from './Header';
 import {DynamicText, DynamicView} from 'src/components';
 import useLogData from './useLogData';
+import menuItems from 'menuitems.json';
 
-const url =
-  'https://raw.githubusercontent.com/Meta-Mobile-Developer-PC/Working-With-Data-API/main/menu-items-by-category.json';
-
-type MenuType = {
-  id: number;
+type MenuItem = {
   title: string;
   price: string;
-  category: {
-    title: string;
-  };
 };
 
 const Separator = () => (
@@ -33,15 +27,14 @@ const Separator = () => (
 const Challenge = () => {
   const id = useId();
 
-  const [data, setData] = useState<MenuType[]>([]);
+  const [data, setData] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const data = (await fetch(url).then(response => response.json())) as {
-        menu: MenuType[];
-      };
+
+      const data = menuItems;
       useLogData(data);
       setData(data.menu);
     } catch (e) {
@@ -55,7 +48,7 @@ const Challenge = () => {
     fetchData();
   }, []);
 
-  const renderItem: ListRenderItem<MenuType> = ({item}) => (
+  const renderItem: ListRenderItem<MenuItem> = ({item}) => (
     <DynamicView flexDirection="row" justifyContent="space-between">
       <DynamicText fontSize={18} fontWeight="500" color="#DAFB61">
         {item.title}
@@ -72,10 +65,10 @@ const Challenge = () => {
       {loading ? (
         <ActivityIndicator />
       ) : (
-        <FlatList<MenuType>
+        <FlatList<MenuItem>
           contentContainerStyle={styles.contentContainer}
           ItemSeparatorComponent={Separator}
-          keyExtractor={(i, index) => `${id}-${i.id}-${index}`}
+          keyExtractor={(_, index) => `${id}-${index}`}
           data={data}
           renderItem={renderItem}
         />

@@ -1,7 +1,9 @@
-import {Text, Switch} from 'react-native';
-import React, {useEffect, useState} from 'react';
-import {DynamicText, DynamicView} from 'src/components';
+import React, {useEffect, useRef, useState} from 'react';
+import {Text, Switch, Alert} from 'react-native';
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import {DynamicText, DynamicView} from 'src/components';
 
 type Preferences = {
   pushNotifications: boolean;
@@ -16,19 +18,21 @@ const Challenge = () => {
     latestNews: false,
   });
 
-  const updateState = (key: keyof Preferences) => () => {
-    setPreferences(prevState => ({
-      ...prevState,
-      [key]: !prevState[key],
-    }));
-  };
+  const isInitialMount = useRef(true);
 
   useEffect(() => {
     const getStoragePreferences = async () => {
-      const storagePreferences = await AsyncStorage.getItem('preferences');
-      if (storagePreferences !== null) {
-        setPreferences(JSON.parse(storagePreferences));
-      }
+      const values = await AsyncStorage.multiGet(Object.keys(preferences));
+
+      const initialState = values.reduce(
+        (acc, curr) => {
+          // Every item in the values array is itself an array with a string key and a stringified value, i.e ['pushNotifications', 'false']
+          acc[curr[0] as keyof Preferences] = JSON.parse(curr[1] as string);
+          return acc;
+        },
+        {pushNotifications: false, emailMarketing: false, latestNews: false},
+      );
+      setPreferences(initialState);
     };
 
     getStoragePreferences();
@@ -36,19 +40,30 @@ const Challenge = () => {
 
   useEffect(() => {
     const handlePrefencesUpdates = async () => {
-      await AsyncStorage.setItem(
-        'preferences',
-        JSON.stringify(preferences),
-        e => {
-          if (e) {
-            console.warn(e);
-          }
-        },
-      );
+      const keyValues = Object.entries(preferences).map(entry => {
+        return [entry[0], String(entry[1])];
+      });
+
+      try {
+        await AsyncStorage.multiSet(keyValues as [string, string][]);
+      } catch (e) {
+        Alert.alert(`An error occurred: ${e}`);
+      }
     };
 
-    handlePrefencesUpdates();
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+    } else {
+      handlePrefencesUpdates();
+    }
   }, [preferences]);
+
+  const updateState = (key: keyof Preferences) => () => {
+    setPreferences(prevState => ({
+      ...prevState,
+      [key]: !prevState[key],
+    }));
+  };
 
   return (
     <DynamicView variant="container" bg="#ecf0f1" paddingHorizontal="m">

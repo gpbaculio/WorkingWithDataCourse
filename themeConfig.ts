@@ -1,3 +1,5 @@
+import {StatusBar} from 'react-native';
+
 export const fastImageVariants = {
   defaults: {},
 };
@@ -11,6 +13,10 @@ export const containerVariants = {
   center: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  container: {
+    paddingTop: StatusBar.currentHeight,
+    flex: 1,
   },
 };
 
@@ -39,4 +45,5 @@ export const colors = {
   black: 'black',
   '#f5f5f5': '#f5f5f5',
   '#495E57': '#495E57',
+  '#ecf0f1': '#ecf0f1',
 };

@@ -1,6 +1,7 @@
 import {Text, Switch} from 'react-native';
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {DynamicText, DynamicView} from 'src/components';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Preferences = {
   pushNotifications: boolean;
@@ -21,6 +22,33 @@ const Challenge = () => {
       [key]: !prevState[key],
     }));
   };
+
+  useEffect(() => {
+    const getStoragePreferences = async () => {
+      const storagePreferences = await AsyncStorage.getItem('preferences');
+      if (storagePreferences !== null) {
+        setPreferences(JSON.parse(storagePreferences));
+      }
+    };
+
+    getStoragePreferences();
+  }, []);
+
+  useEffect(() => {
+    const handlePrefencesUpdates = async () => {
+      await AsyncStorage.setItem(
+        'preferences',
+        JSON.stringify(preferences),
+        e => {
+          if (e) {
+            console.warn(e);
+          }
+        },
+      );
+    };
+
+    handlePrefencesUpdates();
+  }, [preferences]);
 
   return (
     <DynamicView variant="container" bg="#ecf0f1" paddingHorizontal="m">

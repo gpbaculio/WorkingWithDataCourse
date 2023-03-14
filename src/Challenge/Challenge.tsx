@@ -38,6 +38,7 @@ const Challenge = () => {
     getStoragePreferences();
   }, []);
 
+  //  A  useEffect hook that only triggers on updates, not on initial mount
   useEffect(() => {
     const handlePrefencesUpdates = async () => {
       const keyValues = Object.entries(preferences).map(entry => {

@@ -1,20 +1,24 @@
-import React from 'react';
-import {StyleSheet} from 'react-native';
+import React, {ReactNode} from 'react';
+import {Modal, StyleSheet} from 'react-native';
 
 import {
   interpolateColor,
+  runOnJS,
   useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
 
-import DynamicAnimatedView from './DynamicAnimatedView';
 import useModal from 'store/hooks/useModal';
 import {colors} from 'themeConfig';
+import DynamicAnimatedPressable from './DynamicAnimatedPressable';
+import DynamicView from './DynamicView';
 
-const Overlay = () => {
-  const {state: modalState} = useModal();
+type OverlayProps = {children?: ReactNode; onPress?: () => void};
+
+const Overlay = ({children, onPress}: OverlayProps) => {
+  const {state: modalState, actions} = useModal();
 
   const showOverlay = useSharedValue(0);
 
@@ -27,23 +31,42 @@ const Overlay = () => {
 
     return {
       backgroundColor,
-      display: showOverlay.value === 1 ? 'flex' : 'none',
     };
   });
 
   useAnimatedReaction(
     () => modalState.showModal,
     showModal => {
-      showOverlay.value = withTiming(showModal ? 1 : 0);
+      if (showModal) {
+        showOverlay.value = withTiming(1, {duration: 100});
+      }
     },
   );
 
+  const onOverlayPress = () => {
+    showOverlay.value = withTiming(0, {duration: 100}, isFinished => {
+      if (isFinished) {
+        runOnJS(actions.setShowModal)(false);
+        if (onPress) {
+          runOnJS(onPress)();
+        }
+      }
+    });
+  };
+
   return (
-    <DynamicAnimatedView
-      style={animatedStyle}
-      backgroundColor="#495E57"
-      {...StyleSheet.absoluteFillObject}
-    />
+    <Modal transparent statusBarTranslucent>
+      <DynamicView flex={1} alignItems="center" justifyContent="center">
+        <DynamicAnimatedPressable
+          flex={1}
+          disabled={!onPress}
+          style={animatedStyle}
+          onPress={onOverlayPress}
+          {...StyleSheet.absoluteFillObject}
+        />
+        {children}
+      </DynamicView>
+    </Modal>
   );
 };
 

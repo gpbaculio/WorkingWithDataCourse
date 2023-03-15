@@ -95,11 +95,11 @@ export default function App() {
     }
     // 1. Set the new local customer state
     setCustomers(prevCustomers => [
-      ...prevCustomers.filter(c => c.id !== customer.id),
+      ...prevCustomers.filter(c => c.uid !== customer.uid),
     ]);
     // 2. Create a SQL transaction to delete a customer. Make sure if two names are the same, only the selected item is deleted
     sqliteDb.transaction(tx => {
-      tx.executeSql('delete from customers where id = ?', [customer.id]);
+      tx.executeSql('delete from customers where uid = ?', [customer.uid]);
     });
   };
 

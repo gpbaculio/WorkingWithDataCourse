@@ -1,113 +1,177 @@
-import React, {useEffect, useRef, useState} from 'react';
-import {Text, Switch, Alert} from 'react-native';
-
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-import {DynamicText, DynamicView} from 'src/components';
-
-type Preferences = {
-  pushNotifications: boolean;
-  emailMarketing: boolean;
-  latestNews: boolean;
+import {useEffect, useId, useState} from 'react';
+import {
+  SafeAreaView,
+  StyleSheet,
+  View,
+  TextInput,
+  Text,
+  TouchableOpacity,
+} from 'react-native';
+import asyncAlert from './asyncAlert';
+import sqliteDb from './sqliteDb';
+import FontAwesome from 'react-native-vector-icons/FontAwesome';
+import {DynamicPressable} from 'src/components';
+type CustomerType = {
+  id?: string;
+  uid: string;
+  name: string;
 };
 
-const Challenge = () => {
-  const [preferences, setPreferences] = useState<Preferences>({
-    pushNotifications: false,
-    emailMarketing: false,
-    latestNews: false,
+export default function App() {
+  const [textInputValue, setTextInputValue] = useState('');
+  const [dialog, setDialog] = useState({
+    customer: {},
+    isVisible: false,
   });
-
-  const isInitialMount = useRef(true);
+  const [customers, setCustomers] = useState<CustomerType[]>([]);
 
   useEffect(() => {
-    const getStoragePreferences = async () => {
-      const values = await AsyncStorage.multiGet(Object.keys(preferences));
-
-      const initialState = values.reduce(
-        (acc, curr) => {
-          // Every item in the values array is itself an array with a string key and a stringified value, i.e ['pushNotifications', 'false']
-          acc[curr[0] as keyof Preferences] = JSON.parse(curr[1] as string);
-          return acc;
-        },
-        {pushNotifications: false, emailMarketing: false, latestNews: false},
+    sqliteDb.transaction(tx => {
+      tx.executeSql(
+        'create table if not exists customers (id integer primary key not null, uid text, name text);',
       );
-      setPreferences(initialState);
-    };
-
-    getStoragePreferences();
+      tx.executeSql('select * from customers', [], (_, {rows}) => {
+        const customers = rows.raw().map(item => ({
+          id: item.id,
+          uid: item.uid,
+          name: item.name,
+        }));
+        setCustomers(customers);
+      });
+    });
   }, []);
 
-  //  A  useEffect hook that only triggers on updates, not on initial mount
-  useEffect(() => {
-    const handlePrefencesUpdates = async () => {
-      const keyValues = Object.entries(preferences).map(entry => {
-        return [entry[0], String(entry[1])];
-      });
+  const showDialog = (customer: CustomerType) =>
+    setDialog({
+      isVisible: true,
+      customer,
+    });
 
-      try {
-        await AsyncStorage.multiSet(keyValues as [string, string][]);
-      } catch (e) {
-        Alert.alert(`An error occurred: ${e}`);
-      }
-    };
+  const hideDialog = (updatedCustomer: CustomerType) => {
+    setDialog({
+      isVisible: false,
+      customer: {},
+    });
+    // 1. Set the new local customer state
+    // 2. Create a SQL transaction to edit a customer. Make sure if two names are the same, only the selected item is deleted
+  };
 
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-    } else {
-      handlePrefencesUpdates();
+  const deleteCustomer = async (customer: CustomerType) => {
+    const shouldDelete = await asyncAlert({
+      title: 'Delete customer',
+      message: `Are you sure you want to delete the customer named "${customer.name}"?`,
+    });
+    if (!shouldDelete) {
+      return;
     }
-  }, [preferences]);
+    // 1. Set the new local customer state
+    setCustomers(prevCustomers => [
+      ...prevCustomers.filter(c => c.id !== customer.id),
+    ]);
+    // 2. Create a SQL transaction to delete a customer. Make sure if two names are the same, only the selected item is deleted
+    sqliteDb.transaction(tx => {
+      tx.executeSql('delete from customers where id = ?', [customer.id]);
+    });
+  };
 
-  const updateState = (key: keyof Preferences) => () => {
-    setPreferences(prevState => ({
-      ...prevState,
-      [key]: !prevState[key],
-    }));
+  const id = useId();
+
+  const onSaveCustomerPress = () => {
+    const newValue = {uid: Date.now().toString(), name: textInputValue};
+    setCustomers([...customers, newValue]);
+    sqliteDb.transaction(tx => {
+      tx.executeSql('insert into customers (uid, name) values(?, ?)', [
+        newValue.uid,
+        newValue.name,
+      ]);
+    });
+    setTextInputValue('');
   };
 
   return (
-    <DynamicView variant="container" bg="#ecf0f1" paddingHorizontal="m">
-      <DynamicText
-        margin="xxL"
-        pt="m"
-        fontSize={18}
-        fontWeight="bold"
-        textAlign="center">
-        Account Preferences
-      </DynamicText>
-      <DynamicView
-        flexDirection="row"
-        justifyContent="space-between"
-        paddingVertical="l">
-        <Text>Push notifications</Text>
-        <Switch
-          value={preferences.pushNotifications}
-          onValueChange={updateState('pushNotifications')}
+    <SafeAreaView style={{flex: 1}}>
+      <View style={styles.container}>
+        <Text style={styles.titleText}>Little Lemon Customers</Text>
+        <TextInput
+          placeholder="Enter the customer name"
+          value={textInputValue}
+          onChangeText={data => setTextInputValue(data)}
+          underlineColorAndroid="transparent"
+          style={styles.textInputStyle}
         />
-      </DynamicView>
-      <DynamicView
-        flexDirection="row"
-        justifyContent="space-between"
-        paddingVertical="l">
-        <Text>Marketing emails</Text>
-        <Switch
-          value={preferences.emailMarketing}
-          onValueChange={updateState('emailMarketing')}
-        />
-      </DynamicView>
-      <DynamicView
-        flexDirection="row"
-        justifyContent="space-between"
-        paddingVertical="l">
-        <Text>Latest news</Text>
-        <Switch
-          value={preferences.latestNews}
-          onValueChange={updateState('latestNews')}
-        />
-      </DynamicView>
-    </DynamicView>
+        <TouchableOpacity
+          disabled={!textInputValue}
+          onPress={onSaveCustomerPress}
+          style={styles.buttonStyle}>
+          <Text style={styles.buttonTextStyle}> Save Customer </Text>
+        </TouchableOpacity>
+        <View>
+          <Text style={styles.customerName}>Customers: </Text>
+          {customers.map((customer, index) => (
+            <View style={styles.customer} key={`${id}-${index}`}>
+              <Text style={styles.customerName}>{customer.name}</Text>
+              <View style={styles.icons}>
+                <DynamicPressable onPress={() => showDialog(customer)}>
+                  <FontAwesome name="pencil" size={24} />
+                </DynamicPressable>
+                <DynamicPressable
+                  ml="s"
+                  onPress={() => deleteCustomer(customer)}>
+                  <FontAwesome name="trash" size={24} />
+                </DynamicPressable>
+              </View>
+            </View>
+          ))}
+        </View>
+      </View>
+    </SafeAreaView>
   );
-};
+}
 
-export default Challenge;
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 10,
+    backgroundColor: 'white',
+  },
+  titleText: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    paddingVertical: 20,
+  },
+  customer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  customerName: {
+    fontSize: 18,
+  },
+  buttonStyle: {
+    fontSize: 16,
+    color: 'white',
+    backgroundColor: 'green',
+    padding: 5,
+    marginTop: 32,
+    minWidth: 250,
+    marginBottom: 16,
+  },
+  buttonTextStyle: {
+    padding: 5,
+    fontSize: 18,
+    color: 'white',
+    textAlign: 'center',
+  },
+  textInputStyle: {
+    textAlign: 'center',
+    height: 40,
+    fontSize: 18,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: 'green',
+  },
+  icons: {
+    flexDirection: 'row',
+  },
+});

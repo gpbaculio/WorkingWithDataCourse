@@ -1,5 +1,5 @@
 import React from 'react';
-import {View} from 'react-native';
+import 'src/Challenge/sqliteDb';
 import Challenge from 'src/Challenge';
 
 import {AppContainer} from 'src/components';

@@ -22,6 +22,14 @@ export const containerVariants = {
 
 export const textVariants = {
   defaults: {},
+  textInputStyle: {
+    textAlign: 'center',
+    height: 40,
+    fontSize: 18,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#495E57',
+  },
 };
 
 export const spacing = {

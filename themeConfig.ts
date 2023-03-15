@@ -46,4 +46,6 @@ export const colors = {
   '#f5f5f5': '#f5f5f5',
   '#495E57': '#495E57',
   '#ecf0f1': '#ecf0f1',
+  overlayBackground: 'rgba(0, 0, 0, 0.1)',
+  transparent: 'transparent',
 };

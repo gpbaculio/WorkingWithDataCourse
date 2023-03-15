@@ -14,6 +14,8 @@ import useModal from 'store/hooks/useModal';
 import {colors} from 'themeConfig';
 
 const Overlay = () => {
+  const {state: modalState} = useModal();
+
   const showOverlay = useSharedValue(0);
 
   const animatedStyle = useAnimatedStyle(() => {
@@ -23,10 +25,11 @@ const Overlay = () => {
       [colors.transparent, colors.overlayBackground],
     );
 
-    return {backgroundColor};
+    return {
+      backgroundColor,
+      display: showOverlay.value === 1 ? 'flex' : 'none',
+    };
   });
-
-  const {state: modalState} = useModal();
 
   useAnimatedReaction(
     () => modalState.showModal,
@@ -37,8 +40,8 @@ const Overlay = () => {
 
   return (
     <DynamicAnimatedView
-      flex={1}
       style={animatedStyle}
+      backgroundColor="#495E57"
       {...StyleSheet.absoluteFillObject}
     />
   );

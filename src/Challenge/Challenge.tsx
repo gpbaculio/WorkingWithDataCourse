@@ -3,22 +3,23 @@ import {
   SafeAreaView,
   StyleSheet,
   View,
-  TextInput,
-  Text,
-  TouchableOpacity,
   KeyboardAvoidingView,
 } from 'react-native';
-import asyncAlert from './asyncAlert';
-import sqliteDb from './sqliteDb';
+
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
+
 import {
   DynamicPressable,
   DynamicText,
   DynamicTextInput,
   DynamicView,
 } from 'src/components';
-import useModal from 'store/hooks/useModal';
 import Overlay from 'src/components/Overlay';
+
+import useModal from 'store/hooks/useModal';
+
+import asyncAlert from './asyncAlert';
+import sqliteDb from './sqliteDb';
 
 type CustomerType = {
   id?: string;

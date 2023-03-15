@@ -8,17 +8,12 @@ import {Provider} from 'react-redux';
 import store from 'store';
 import restyleTheme from 'restyleTheme';
 
-import Overlay from './Overlay';
-
 type AppContainerProps = {children: React.ReactNode};
 
 const AppContainer = ({children}: AppContainerProps) => (
   <Provider store={store}>
     <GestureHandlerRootView style={styles.container}>
-      <ThemeProvider theme={restyleTheme}>
-        {children}
-        <Overlay />
-      </ThemeProvider>
+      <ThemeProvider theme={restyleTheme}>{children}</ThemeProvider>
     </GestureHandlerRootView>
   </Provider>
 );

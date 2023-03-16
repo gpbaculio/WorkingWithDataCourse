@@ -1,230 +1,184 @@
-import {useEffect, useId, useState} from 'react';
+import {useEffect, useState, useCallback, useMemo, useId} from 'react';
 import {
-  SafeAreaView,
-  StyleSheet,
+  Text,
   View,
-  KeyboardAvoidingView,
+  StyleSheet,
+  SectionList,
+  SafeAreaView,
+  StatusBar,
+  Alert,
 } from 'react-native';
-
-import FontAwesome from 'react-native-vector-icons/FontAwesome';
-
+import debounce from 'lodash.debounce';
 import {
-  DynamicPressable,
-  DynamicText,
-  DynamicTextInput,
-  DynamicView,
-} from 'src/components';
-import Overlay from 'src/components/Overlay';
+  createTable,
+  getMenuItems,
+  saveMenuItems,
+  filterByQueryAndCategories,
+} from './database';
+import Filters from './components/Filters';
+import {getSectionListData, SectionDataType, useUpdateEffect} from './utils';
+import {DynamicTextInput} from 'src/components';
 
-import useModal from 'store/hooks/useModal';
+const API_URL =
+  'https://raw.githubusercontent.com/Meta-Mobile-Developer-PC/Working-With-Data-API/main/menu-items-by-category.json';
+const sections = ['Appetizers', 'Salads', 'Beverages'];
 
-import asyncAlert from './asyncAlert';
-import sqliteDb from './sqliteDb';
-
-type CustomerType = {
-  id?: string;
-  uid: string;
-  name: string;
+type ItemProps = {
+  title: string;
+  price: string;
 };
 
-type DialogType = {
-  customer: CustomerType | null;
-  isVisible: boolean;
-};
+const Item = ({title, price}: ItemProps) => (
+  <View style={styles.item}>
+    <Text style={styles.title}>{title}</Text>
+    <Text style={styles.title}>${price}</Text>
+  </View>
+);
 
 export default function App() {
-  const [textInputValue, setTextInputValue] = useState('');
-  const [dialog, setDialog] = useState<DialogType>({
-    customer: null,
-    isVisible: false,
-  });
-  const [customers, setCustomers] = useState<CustomerType[]>([]);
+  const [data, setData] = useState<SectionDataType[]>([]);
+  const [searchBarText, setSearchBarText] = useState('');
+  const [query, setQuery] = useState('');
+  const [filterSelections, setFilterSelections] = useState(
+    sections.map(() => false),
+  );
 
-  useEffect(() => {
-    sqliteDb.transaction(tx => {
-      tx.executeSql(
-        'create table if not exists customers (id integer primary key not null, uid text, name text);',
-      );
-      tx.executeSql('select * from customers', [], (_, {rows}) => {
-        const customers = rows.raw().map(item => ({
-          id: item.id,
-          uid: item.uid,
-          name: item.name,
-        }));
-        setCustomers(customers);
-      });
-    });
-  }, []);
+  const fetchData = async () => {
+    // 1. Implement this function
+    const data = await fetch(API_URL).then(response => response.json());
 
-  const showDialog = (customer: CustomerType) =>
-    setDialog({
-      isVisible: true,
-      customer,
-    });
-
-  const hideDialog = (updatedCustomer?: CustomerType | null) => {
-    setDialog({isVisible: false, customer: null});
-    if (!updatedCustomer) {
-      return;
-    }
-    // 1. Set the new local customer state
-    setCustomers(prevCustomers => [
-      ...prevCustomers.map(prevCustomer => {
-        if (prevCustomer.uid === updatedCustomer.uid) {
-          return updatedCustomer;
-        }
-        return prevCustomer;
-      }),
-    ]);
-    // 2. Create a SQL transaction to edit a customer. Make sure if two names are the same, only the selected item is deleted
-    sqliteDb.transaction(tx => {
-      tx.executeSql(
-        `update customers set name=? where uid=${updatedCustomer?.uid}`,
-        [updatedCustomer?.name],
-      );
-    });
+    // Fetch the menu from the API_URL endpoint. You can visit the API_URL in your browser to inspect the data returned
+    // The category field comes as an object with a property called "title". You just need to get the title value and set it under the key "category".
+    // So the server response should be slighly transformed in this function (hint: map function) to flatten out each menu item in the array,
+    return [...data.menu];
   };
 
-  const deleteCustomer = async (customer: CustomerType) => {
-    const shouldDelete = await asyncAlert({
-      title: 'Delete customer',
-      message: `Are you sure you want to delete the customer named "${customer.name}"?`,
-    });
-    if (!shouldDelete) {
-      return;
-    }
-    // 1. Set the new local customer state
-    setCustomers(prevCustomers => [
-      ...prevCustomers.filter(c => c.uid !== customer.uid),
-    ]);
-    // 2. Create a SQL transaction to delete a customer. Make sure if two names are the same, only the selected item is deleted
-    sqliteDb.transaction(tx => {
-      tx.executeSql('delete from customers where uid = ?', [customer.uid]);
-    });
+  useEffect(() => {
+    (async () => {
+      try {
+        await createTable();
+        let menuItems = await getMenuItems();
+        // useDevLogData(menuItems, "getMenuItems()");
+        // The application only fetches the menu data once from a remote URL
+        // and then stores it into a SQLite database.
+        // After that, every application restart loads the menu from the database
+        if (!menuItems.length) {
+          menuItems = await fetchData();
+          saveMenuItems(menuItems);
+        }
+
+        const sectionListData = getSectionListData(menuItems);
+
+        setData([...sectionListData]);
+      } catch (e) {
+        // Handle error
+        Alert.alert((e as Error).message);
+      }
+    })();
+  }, []);
+
+  useUpdateEffect(() => {
+    (async () => {
+      const activeCategories = sections.filter((s, i) => {
+        // If all filters are deselected, all categories are active
+        if (filterSelections.every(item => item === false)) {
+          return true;
+        }
+        return filterSelections[i];
+      });
+      try {
+        const menuItems = await filterByQueryAndCategories(
+          query,
+          activeCategories,
+        );
+        const sectionListData = getSectionListData(menuItems);
+        setData(sectionListData);
+      } catch (e) {
+        Alert.alert((e as Error).message);
+      }
+    })();
+  }, [filterSelections, query]);
+
+  const lookup = useCallback((q: string) => {
+    setQuery(q);
+  }, []);
+
+  const debouncedLookup = useMemo(() => debounce(lookup, 500), [lookup]);
+
+  const handleSearchChange = (text: string) => {
+    setSearchBarText(text);
+    debouncedLookup(text);
+  };
+
+  const handleFiltersChange = (index: number) => {
+    const arrayCopy = [...filterSelections];
+    arrayCopy[index] = !filterSelections[index];
+    setFilterSelections(arrayCopy);
   };
 
   const id = useId();
 
-  const onSaveCustomerPress = () => {
-    const newValue = {uid: Date.now().toString(), name: textInputValue};
-    setCustomers([...customers, newValue]);
-    sqliteDb.transaction(tx => {
-      tx.executeSql('insert into customers (uid, name) values(?, ?)', [
-        newValue.uid,
-        newValue.name,
-      ]);
-    });
-    setTextInputValue('');
-  };
-
-  const {actions} = useModal();
-
-  useEffect(() => {
-    if (dialog.isVisible) {
-      actions.setShowModal(dialog.isVisible);
-    }
-  }, [dialog.isVisible]);
+  console.log('data=', JSON.stringify(data));
 
   return (
     <SafeAreaView style={styles.container}>
-      <DynamicView flex={1} padding="m" backgroundColor="white">
-        <DynamicText
-          fontSize={22}
-          fontWeight="bold"
-          textAlign="center"
-          paddingVertical="xL">
-          Little Lemon Customers
-        </DynamicText>
-        <DynamicTextInput
-          placeholder="Enter the customer name"
-          value={textInputValue}
-          onChangeText={data => setTextInputValue(data)}
-          underlineColorAndroid="transparent"
-          variant="textInputStyle"
-        />
-        <DynamicPressable
-          backgroundColor="#495E57"
-          marginVertical="m"
-          p="s"
-          disabled={!textInputValue}
-          onPress={onSaveCustomerPress}>
-          <DynamicText fontSize={18} color="white" textAlign="center">
-            Save Customer
-          </DynamicText>
-        </DynamicPressable>
-        <View>
-          <DynamicText fontSize={21} fontWeight="500" mb="m">
-            Customers:
-          </DynamicText>
-          {customers.map((customer, index) => (
-            <DynamicView
-              flexDirection="row"
-              justifyContent="space-between"
-              alignItems="center"
-              key={`${id}-${index}-${customer.uid}`}>
-              <DynamicText fontSize={18} fontWeight="500">
-                {customer.name}
-              </DynamicText>
-              <DynamicView flexDirection="row">
-                <DynamicPressable onPress={() => showDialog(customer)}>
-                  <FontAwesome name="pencil" size={24} />
-                </DynamicPressable>
-                <DynamicPressable
-                  ml="s"
-                  onPress={() => deleteCustomer(customer)}>
-                  <FontAwesome name="trash" size={24} />
-                </DynamicPressable>
-              </DynamicView>
-            </DynamicView>
-          ))}
-        </View>
-      </DynamicView>
-      {dialog.isVisible && dialog.customer ? (
-        <Overlay onPress={hideDialog}>
-          <KeyboardAvoidingView style={styles.keyboard}>
-            <DynamicText fontWeight="500" mb="s">
-              Edit Customer name
-            </DynamicText>
-            <DynamicTextInput
-              value={dialog.customer?.name}
-              onChangeText={text =>
-                setDialog(prev => ({
-                  ...prev,
-                  customer: {
-                    ...(prev.customer as CustomerType),
-                    name: text,
-                  },
-                }))
-              }
-              underlineColorAndroid="transparent"
-              variant="textInputStyle"
-            />
-            <DynamicPressable
-              mt="xs"
-              backgroundColor="#495E57"
-              onPress={() => {
-                hideDialog(dialog.customer);
-              }}>
-              <DynamicText
-                paddingVertical="xs"
-                textAlign="center"
-                color="white"
-                fontWeight="500">
-                Done
-              </DynamicText>
-            </DynamicPressable>
-          </KeyboardAvoidingView>
-        </Overlay>
-      ) : null}
+      <DynamicTextInput
+        placeholder="Search"
+        placeholderTextColor="white"
+        onChangeText={handleSearchChange}
+        value={searchBarText}
+        style={styles.searchBar}
+        elevation={0}
+      />
+      <Filters
+        selections={filterSelections}
+        onChange={handleFiltersChange}
+        sections={sections}
+      />
+      <SectionList
+        style={styles.sectionList}
+        sections={data}
+        keyExtractor={(item, index) => `${id}-${index}`}
+        renderItem={({item}) => {
+          return <Item title={item?.title} price={item?.price} />;
+        }}
+        renderSectionHeader={({section: {title}}) => (
+          <Text style={styles.header}>{title}</Text>
+        )}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  keyboard: {
-    width: '60%',
-    padding: 16,
-    backgroundColor: '#f5f5f5',
+  container: {
+    flex: 1,
+    paddingTop: StatusBar.currentHeight,
+    backgroundColor: '#495E57',
   },
-  container: {flex: 1},
+  sectionList: {
+    paddingHorizontal: 16,
+  },
+  searchBar: {
+    marginBottom: 24,
+    backgroundColor: '#495E57',
+    shadowRadius: 0,
+    shadowOpacity: 0,
+  },
+  item: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+  },
+  header: {
+    fontSize: 24,
+    paddingVertical: 8,
+    color: '#FBDABB',
+    backgroundColor: '#495E57',
+  },
+  title: {
+    fontSize: 20,
+    color: 'white',
+  },
 });

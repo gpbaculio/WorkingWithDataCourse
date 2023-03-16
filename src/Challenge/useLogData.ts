@@ -1,9 +1,5 @@
-import {View, Text} from 'react-native';
-import React from 'react';
-
-const useLogData = (data: any) => {
-  const logData = JSON.stringify(data, null, 2);
-  console.log('data', logData);
+const useLogData = (data: any, title: string = '') => {
+  if (__DEV__) console.log(title, JSON.stringify(data, null, 2));
 };
 
 export default useLogData;

@@ -118,17 +118,19 @@ export default function App() {
 
   const id = useId();
 
-  console.log('data=', JSON.stringify(data));
-
   return (
     <SafeAreaView style={styles.container}>
       <DynamicTextInput
+        color="white"
         placeholder="Search"
         placeholderTextColor="white"
         onChangeText={handleSearchChange}
         value={searchBarText}
         style={styles.searchBar}
         elevation={0}
+        padding="s"
+        borderColor="white"
+        borderWidth={1}
       />
       <Filters
         selections={filterSelections}

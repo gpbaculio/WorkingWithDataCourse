@@ -1,6 +1,6 @@
-import * as SQLite from 'react-native-sqlite-storage';
+import SQLite from 'react-native-sqlite-storage';
 import useLogData from './useLogData';
-import {DataType, handleData, SECTION_LIST_MOCK_DATA} from './utils';
+import {DataType} from './utils';
 
 const db = SQLite.openDatabase(
   {name: 'little_lemon'},
@@ -52,14 +52,15 @@ export function saveMenuItems(menuItems: DataType[]) {
   const {txParams, queryValues} = handleSQLParams(menuItems);
 
   if (txParams.length && queryValues.length) {
+    const sqlQuery = `insert into menuitems (uuid, title, price,category) values ${queryValues.join(
+      ',',
+    )}`;
     db.transaction(tx => {
       // 2. Implement a single SQL statement to save all menu data in a table called menuitems.
       // Check the createTable() function above to see all the different columns the table has
       // Hint: You need a SQL statement to insert multiple rows at once.
       tx.executeSql(
-        `insert into menuitems (uuid, title, price,category) values ${queryValues.join(
-          ',',
-        )}`,
+        sqlQuery,
         txParams,
         (_, {rows}) => {
           useLogData(rows.raw(), 'insert into menuitems');
@@ -99,7 +100,7 @@ export async function filterByQueryAndCategories(
   let categoryQuery: string[] = [];
 
   activeCategories.forEach(_ => {
-    categoryQuery.push('category = ?');
+    categoryQuery.push('?');
   });
 
   const sqlQuery = `select * from menuitems WHERE title LIKE ?${
